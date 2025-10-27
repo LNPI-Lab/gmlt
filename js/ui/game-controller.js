@@ -96,7 +96,7 @@ class GameController {
         for (let row = 0; row < this.config.gridSize; row++) {
             for (let col = 0; col < this.config.gridSize; col++) {
                 const cell = document.createElement('div');
-                cell.className = 'maze-cell bg-gray-100 border-2 border-gray-300 cursor-pointer transition-all hover:bg-gray-200 flex items-center justify-center';
+                cell.className = 'maze-cell bg-gray-100 border-2 border-gray-300 cursor-pointer transition-all hover:opacity-80 flex items-center justify-center';
                 
                 // Responsive sizing
                 const cellWidth = window.innerWidth < 640 ? 'w-6 h-6 text-xs' : 
@@ -368,20 +368,15 @@ class GameController {
             const isStartCell = (row === 0 && col === 0);
             const isEndCell = (row === this.config.gridSize - 1 && col === this.config.gridSize - 1);
             
-            // Skip cells showing error animation
-            if (cell.classList.contains('bg-red-500')) {
-                return;
-            }
-            
             // Only the current position should be green
             if (isCurrentPosition) {
                 // Current position - green
                 if (isStartCell) {
-                    cell.classList.remove('bg-blue-400', 'bg-gray-100');
+                    cell.classList.remove('bg-blue-400', 'bg-gray-100', 'bg-red-500', 'cell-animate');
                     cell.classList.add('bg-green-500', 'text-white');
                     cell.textContent = '✓';
                 } else if (isEndCell) {
-                    cell.classList.remove('bg-yellow-400');
+                    cell.classList.remove('bg-yellow-400', 'bg-red-500', 'cell-animate');
                     cell.classList.add('bg-green-500', 'text-white');
                     cell.textContent = '✓';
                 } else {
@@ -392,15 +387,15 @@ class GameController {
             } else {
                 // Not current position
                 if (isStartCell) {
-                    cell.classList.remove('bg-green-500', 'text-white', 'bg-gray-100');
+                    cell.classList.remove('bg-green-500', 'text-white', 'bg-gray-100', 'bg-red-500', 'cell-animate');
                     cell.classList.add('bg-blue-400', 'font-bold');
                     cell.textContent = 'S';
                 } else if (isEndCell) {
-                    cell.classList.remove('bg-green-500', 'text-white', 'bg-gray-100');
+                    cell.classList.remove('bg-green-500', 'text-white', 'bg-gray-100', 'bg-red-500', 'cell-animate');
                     cell.classList.add('bg-yellow-400');
                     cell.textContent = 'E';
                 } else {
-                    // Regular cell - remove green, keep gray
+                    // Regular cell - remove green and red, keep gray
                     cell.classList.remove('bg-green-500', 'text-white', 'bg-red-500', 'cell-animate');
                     cell.classList.add('bg-gray-100');
                     cell.textContent = '';

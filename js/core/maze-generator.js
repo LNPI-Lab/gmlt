@@ -10,12 +10,23 @@ class MazeGenerator {
 
     /**
      * Generate a valid maze path from start to end
-     * Uses a deterministic approach to create a fair path
+     * Uses a deterministic approach to create a fair path of exactly 28 steps
      * @returns {Array} Array of [row, col] coordinates representing the path
      */
     generatePath() {
+        const targetLength = 28; // Fixed path length
+        // Always use the exact length generator to ensure consistency
+        return this._generateExactLengthPath(targetLength);
+    }
+    
+    /**
+     * Legacy generatePath method (kept for reference but not used)
+     * @deprecated
+     */
+    _generatePathOld() {
         const start = [0, 0];
         const end = [this.gridSize - 1, this.gridSize - 1];
+        const targetLength = 28; // Fixed path length
         
         // Use iterative depth-first approach with goal-oriented movement
         const path = [[0, 0]];
@@ -25,9 +36,18 @@ class MazeGenerator {
         let steps = 0;
         const maxSteps = this.gridSize * this.gridSize * 2;
         
-        while (steps < maxSteps) {
+        while (steps < maxSteps && path.length < targetLength) {
+            // If we've reached the end before target length, we need to pad
             if (current[0] === end[0] && current[1] === end[1]) {
-                break;
+                // If we're at the end and path is too short, backtrack to add more cells
+                if (path.length < targetLength) {
+                    path.pop();
+                    const backtrackCell = path[path.length - 1];
+                    current = backtrackCell;
+                    visited.delete(`${end[0]},${end[1]}`);
+                } else {
+                    break;
+                }
             }
             
             const neighbors = this._getValidNeighbors(current, visited, end);
@@ -48,26 +68,212 @@ class MazeGenerator {
                 current = next;
                 const key = `${next[0]},${next[1]}`;
                 visited.add(key);
+                
+                // If this is the end and we have the right length, we're done
+                if (current[0] === end[0] && current[1] === end[1] && path.length === targetLength) {
+                    break;
+                }
             }
             
             steps++;
         }
         
-        // Ensure we reach the end
+        // If path is too short, try to extend it
+        if (path.length < targetLength) {
+            while (path.length < targetLength) {
+                const lastCell = path[path.length - 1];
+                const neighbors = this._getValidNeighbors(lastCell, visited, end);
+                if (neighbors.length > 0) {
+                    const next = neighbors[0];
+                    path.push(next);
+                    visited.add(`${next[0]},${next[1]}`);
+                } else {
+                    break;
+                }
+            }
+        }
+        
+        // If path is too long, trim it to target length
+        if (path.length > targetLength) {
+            path.splice(targetLength);
+            // If trimmed path doesn't end at target, add final path to end
+            const last = path[path.length - 1];
+            if (last[0] !== end[0] || last[1] !== end[1]) {
+                const row = last[0];
+                const col = last[1];
+                let added = false;
+                
+                // Move to end
+                for (let r = row; r < end[0]; r++) {
+                    path.push([r + 1, col]);
+                    if (path.length >= targetLength) {
+                        break;
+                    }
+                }
+                if (path.length < targetLength) {
+                    for (let c = col; c < end[1]; c++) {
+                        path.push([end[0], c + 1]);
+                        if (path.length >= targetLength) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Trim to exactly 28 steps while ensuring we end at goal
+        if (path.length > targetLength) {
+            path.splice(targetLength);
+        }
+        
+        // Ensure last cell is the end
         if (path[path.length - 1][0] !== end[0] || path[path.length - 1][1] !== end[1]) {
-            // If we didn't reach the end, add the remaining path
+            // Replace last few cells with path to end
+            const distToEnd = Math.abs(end[0] - path[path.length - 1][0]) + Math.abs(end[1] - path[path.length - 1][1]);
+            while (distToEnd + path.length > targetLength && path.length > 0) {
+                path.pop();
+            }
+            
+            // Add path to end
             const last = path[path.length - 1];
             const row = last[0];
             const col = last[1];
             
-            // Move to end
-            for (let r = row; r < end[0]; r++) {
-                path.push([r + 1, col]);
-            }
-            for (let c = col; c < end[1]; c++) {
-                path.push([end[0], c + 1]);
+            let r = row;
+            let c = col;
+            
+            while (path.length < targetLength - 1 && (r < end[0] || c < end[1])) {
+                if (r < end[0]) {
+                    r++;
+                    path.push([r, c]);
+                } else if (c < end[1]) {
+                    c++;
+                    path.push([r, c]);
+                } else {
+                    break;
+                }
             }
         }
+        
+        // Final check: ensure exactly targetLength and ends at goal
+        if (path.length !== targetLength || path[path.length - 1][0] !== end[0] || path[path.length - 1][1] !== end[1]) {
+            // Fallback: generate a deterministic path of exactly 28 steps
+            const fallbackPath = this._generateExactLengthPath(targetLength);
+            console.log(`[MazeGenerator] Using fallback path, length: ${fallbackPath.length}`);
+            return fallbackPath;
+        }
+        
+        console.log(`[MazeGenerator] Generated path of exact length: ${path.length}`);
+        return path;
+    }
+    
+    /**
+     * Generate a path of exactly the specified length from start to end
+     * Uses a simple deterministic approach to ensure exactly targetLength steps
+     * @private
+     */
+    _generateExactLengthPath(targetLength) {
+        const end = [this.gridSize - 1, this.gridSize - 1];
+        const path = [[0, 0]];
+        
+        // Generate a winding path that ends at the goal
+        // We'll explore in a pattern, then ensure we end at the goal in the last few steps
+        const exploreSteps = targetLength - (this.gridSize - 1 + this.gridSize - 1); // Steps to use for exploration
+        
+        let row = 0, col = 0;
+        const visited = new Set(['0,0']);
+        let explorationCount = 0;
+        let zigzag = true;
+        
+        // Explore maze until we need to head to the goal
+        while (path.length < exploreSteps + 5) {
+            const neighbors = this._getValidNeighbors([row, col], visited, [0, 0]);
+            
+            if (neighbors.length > 0) {
+                const next = neighbors[Math.floor(Math.random() * neighbors.length)];
+                row = next[0];
+                col = next[1];
+                path.push([row, col]);
+                visited.add(`${row},${col}`);
+            } else if (path.length > 1) {
+                path.pop();
+                const lastCell = path[path.length - 1];
+                row = lastCell[0];
+                col = lastCell[1];
+            } else {
+                break;
+            }
+        }
+        
+        // Now ensure we have exactly targetLength steps ending at goal
+        // Trim if too long
+        if (path.length >= targetLength) {
+            path.splice(targetLength);
+        }
+        
+        // Ensure we end at goal
+        const last = path[path.length - 1];
+        const distToEnd = Math.abs(end[0] - last[0]) + Math.abs(end[1] - last[1]);
+        const stepsNeeded = targetLength - path.length;
+        
+        if (stepsNeeded >= distToEnd) {
+            // Can reach goal in remaining steps
+            let r = last[0], c = last[1];
+            while ((r < end[0] || c < end[1]) && path.length < targetLength) {
+                if (r < end[0]) r++;
+                else if (c < end[1]) c++;
+                path.push([r, c]);
+            }
+        } else {
+            // Not enough steps - generate a simple deterministic path
+            path.length = 1; // Keep [0,0]
+            let r = 0, c = 0;
+            
+            // Generate a simple zigzag path
+            let moveRight = true;
+            
+            while (path.length < targetLength - 1) {
+                if (moveRight && c < end[1]) {
+                    c++;
+                    path.push([r, c]);
+                    moveRight = false;
+                } else if (!moveRight && r < end[0]) {
+                    r++;
+                    path.push([r, c]);
+                    moveRight = true;
+                } else if (r < end[0]) {
+                    r++;
+                    path.push([r, c]);
+                } else {
+                    break;
+                }
+            }
+            
+            // Ensure last cell is goal
+            if (path[path.length - 1][0] !== end[0] || path[path.length - 1][1] !== end[1]) {
+                path.push([end[0], end[1]]);
+            }
+            
+            // Adjust to exactly targetLength if needed
+            if (path.length < targetLength) {
+                // Add small loops to pad
+                const last = path[path.length - 1];
+                while (path.length < targetLength) {
+                    const neighbors = this._getValidNeighbors(last, new Set(), [end[0], end[1]]);
+                    if (neighbors.length > 0) {
+                        const next = neighbors[0];
+                        path.splice(path.length - 1, 0, next); // Insert before last
+                    } else {
+                        break;
+                    }
+                }
+            } else if (path.length > targetLength) {
+                path.splice(targetLength);
+                path[path.length - 1] = [end[0], end[1]]; // Ensure end at goal
+            }
+        }
+        
+        console.log(`[MazeGenerator] Generated path of length ${path.length}, ending at [${path[path.length - 1]}]`);
         
         return path;
     }
