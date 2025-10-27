@@ -35,6 +35,7 @@ class GameController {
      * Start the first trial
      */
     startFirstTrial() {
+        console.log('[Game Start] Starting first trial');
         document.getElementById('instructions-screen').classList.add('hidden');
         document.getElementById('game-screen').classList.remove('hidden');
         
@@ -45,8 +46,11 @@ class GameController {
      * Start a new trial
      */
     startNewTrial() {
+        console.log(`[Trial Start] Starting trial ${this.gameState.currentTrial + 1}`);
         const path = this.mazeGenerator.generateRandomPath();
+        console.log(`[Path Generated] Path length: ${path.length}, Path:`, path);
         this.gameState.startNewTrial(path);
+        console.log(`[Game State] Trial ${this.gameState.currentTrial} started, Path length: ${this.gameState.currentPath.length}`);
         
         this.updateTrialInfo();
         this.renderMaze(path);
@@ -92,7 +96,7 @@ class GameController {
         for (let row = 0; row < this.config.gridSize; row++) {
             for (let col = 0; col < this.config.gridSize; col++) {
                 const cell = document.createElement('div');
-                cell.className = 'maze-cell bg-gray-100 border-2 border-gray-300 cursor-pointer transition-all hover:bg-gray-200';
+                cell.className = 'maze-cell bg-gray-100 border-2 border-gray-300 cursor-pointer transition-all hover:bg-gray-200 flex items-center justify-center';
                 
                 // Responsive sizing
                 const cellWidth = window.innerWidth < 640 ? 'w-6 h-6 text-xs' : 
@@ -143,8 +147,12 @@ class GameController {
      * Handle cell click
      */
     handleCellClick(row, col, cellElement) {
+        console.log(`[Cell Click] Clicked cell [${row},${col}], Current trial: ${this.gameState.currentTrial}`);
+        console.log(`[Game State] Current position: [${this.gameState.currentPosition}], Errors: ${this.gameState.errorCount}`);
+        
         // Check if game is complete
         if (this.gameState.isComplete) {
+            console.log('[Game State] Game is complete, ignoring click');
             return;
         }
         
@@ -152,33 +160,30 @@ class GameController {
         if (this.gameState.ruleBreakActive) {
             // Check if this is the flashing tile
             const [flashRow, flashCol] = this.gameState.lastCorrectPosition;
+            console.log(`[Rule Break] Active, flashing tile: [${flashRow},${flashCol}]`);
             if (row === flashRow && col === flashCol) {
                 // User clicked the flashing tile - resume normal play
+                console.log('[Rule Break] Correct tile clicked, resuming normal play');
                 this.stopFlashingTile([row, col]);
                 this.gameState.ruleBreakActive = false;
                 this.gameState.consecutiveErrors = 0; // Reset consecutive errors
                 this.updateMessage('Try to continue through the maze');
+                this.updateVisualState();
                 return;
             } else {
                 // Wrong tile - ignore, show message
+                console.log('[Rule Break] Wrong tile clicked during rule break');
                 this.updateMessage('Touch the flashing tile, then try to continue', true);
                 return;
             }
         }
         
-        // Ignore if already visited successfully
-        if (cellElement.classList.contains('bg-green-500')) {
-            return;
-        }
-        
         const result = this.gameState.makeMove(row, col);
+        console.log(`[Move Result] Valid: ${result.valid}, Type: ${result.errorType || 'correct'}`, result);
         
         if (result.valid) {
             // CORRECT MOVE
-            cellElement.classList.remove('bg-gray-100', 'hover:bg-gray-200');
-            cellElement.classList.add('bg-green-500', 'text-white', 'cell-animate');
-            cellElement.textContent = '✓';
-            
+            console.log(`[Correct Move] Valid move to [${row},${col}], New position: [${this.gameState.currentPosition}]`);
             // Audio feedback
             this.playSuccessSound();
             
@@ -187,16 +192,18 @@ class GameController {
             
             // Check if completed
             if (result.isComplete) {
+                console.log('[Trial Complete] Trial completed successfully!');
                 this.updateTrialInfo();
                 setTimeout(() => this.completeCurrentTrial(), 1000);
                 return;
             }
             
-            // Update stats
+            // Update stats and visual state
             this.updateTrialInfo();
             this.updateVisualState();
         } else {
             // INCORRECT MOVE
+            console.log(`[Error] Invalid move to [${row},${col}], Error type: ${result.errorType}, Consecutive errors: ${this.gameState.consecutiveErrors}`);
             let message, isError;
             
             if (result.errorType === 'legal') {
@@ -208,6 +215,7 @@ class GameController {
             } else if (result.errorType === 'rule-break') {
                 message = 'Touch the flashing tile, then try to continue';
                 isError = true;
+                console.log(`[Rule Break] Starting flashing animation on [${result.lastCorrectPosition}]`);
                 // Start flashing animation
                 this.startFlashingTile(result.lastCorrectPosition);
             }
@@ -220,13 +228,23 @@ class GameController {
             this.updateMessage(message, isError);
             this.updateTrialInfo();
             
+            // Immediately highlight the current position (last correct cell)
+            const [currentRow, currentCol] = this.gameState.getCurrentPosition();
+            const currentCell = document.querySelector(`[data-row="${currentRow}"][data-col="${currentCol}"]`);
+            if (currentCell && currentCell !== cellElement) {
+                currentCell.classList.remove('bg-gray-100', 'bg-blue-400', 'bg-yellow-400');
+                currentCell.classList.add('bg-green-500', 'text-white');
+                currentCell.textContent = '✓';
+            }
+            
             // Reset visual feedback after delay (unless rule-break)
             setTimeout(() => {
                 if (!this.gameState.ruleBreakActive) {
                     cellElement.classList.remove('bg-red-500', 'cell-animate');
                     cellElement.classList.add('bg-gray-100');
-                    this.updateVisualState();
                 }
+                // Update visual state to show correct current position after error animation
+                this.updateVisualState();
             }, 500);
         }
     }
@@ -341,44 +359,51 @@ class GameController {
      * Update the visual state of the maze to reflect current game state
      */
     updateVisualState() {
-        const visited = this.gameState.visitedCells;
         const [currentRow, currentCol] = this.gameState.getCurrentPosition();
         
         document.querySelectorAll('.maze-cell').forEach(cell => {
             const row = parseInt(cell.dataset.row);
             const col = parseInt(cell.dataset.col);
-            const key = `${row},${col}`;
-            const isStartOrEnd = this.isStartOrEndCell(row, col);
-            const isVisited = visited.has(key);
+            const isCurrentPosition = (row === currentRow && col === currentCol);
+            const isStartCell = (row === 0 && col === 0);
+            const isEndCell = (row === this.config.gridSize - 1 && col === this.config.gridSize - 1);
             
-            // Handle start and end cells
-            if (row === 0 && col === 0) {
-                // Start cell
-                if (isVisited) {
+            // Skip cells showing error animation
+            if (cell.classList.contains('bg-red-500')) {
+                return;
+            }
+            
+            // Only the current position should be green
+            if (isCurrentPosition) {
+                // Current position - green
+                if (isStartCell) {
                     cell.classList.remove('bg-blue-400', 'bg-gray-100');
                     cell.classList.add('bg-green-500', 'text-white');
                     cell.textContent = '✓';
-                } else {
-                    cell.classList.remove('bg-green-500', 'text-white');
-                    cell.classList.add('bg-blue-400', 'font-bold');
-                    cell.textContent = 'S';
-                }
-            } else if (row === this.config.gridSize - 1 && col === this.config.gridSize - 1) {
-                // End cell - keep as yellow if not reached
-                if (!isVisited) {
-                    cell.classList.add('bg-yellow-400');
-                    cell.textContent = 'E';
-                }
-            } else {
-                // Regular cells
-                cell.classList.remove('bg-red-500', 'cell-animate');
-                cell.classList.add('bg-gray-100');
-                cell.textContent = '';
-                
-                if (isVisited) {
-                    cell.classList.remove('bg-gray-100');
+                } else if (isEndCell) {
+                    cell.classList.remove('bg-yellow-400');
                     cell.classList.add('bg-green-500', 'text-white');
                     cell.textContent = '✓';
+                } else {
+                    cell.classList.remove('bg-gray-100', 'bg-red-500', 'cell-animate');
+                    cell.classList.add('bg-green-500', 'text-white');
+                    cell.textContent = '✓';
+                }
+            } else {
+                // Not current position
+                if (isStartCell) {
+                    cell.classList.remove('bg-green-500', 'text-white', 'bg-gray-100');
+                    cell.classList.add('bg-blue-400', 'font-bold');
+                    cell.textContent = 'S';
+                } else if (isEndCell) {
+                    cell.classList.remove('bg-green-500', 'text-white', 'bg-gray-100');
+                    cell.classList.add('bg-yellow-400');
+                    cell.textContent = 'E';
+                } else {
+                    // Regular cell - remove green, keep gray
+                    cell.classList.remove('bg-green-500', 'text-white', 'bg-red-500', 'cell-animate');
+                    cell.classList.add('bg-gray-100');
+                    cell.textContent = '';
                 }
             }
         });
@@ -397,10 +422,22 @@ class GameController {
      */
     completeCurrentTrial() {
         const trialData = this.gameState.completeTrial();
+        console.log(`[Trial Complete] Trial ${trialData.trialNumber} completed:`, trialData);
+        console.log(`[Session Data] Total trials: ${this.gameState.trials.length}, All complete: ${this.gameState.areAllTrialsComplete()}`);
+        
+        // Log all moves with timestamps for this trial
+        console.log(`[Moves Timeline] Trial ${trialData.trialNumber} - ${trialData.moves.length} total moves:`);
+        trialData.moves.forEach((move, index) => {
+            const timestamp = new Date(move.timestamp).toISOString();
+            const timeFromStart = move.time;
+            const status = move.correct ? '✓' : '✗';
+            console.log(`  ${index + 1}. ${status} [${move.position}] - Relative: ${timeFromStart}ms, Absolute: ${timestamp}`);
+        });
         
         // Brief pause before next trial or results
         setTimeout(() => {
             if (this.gameState.areAllTrialsComplete()) {
+                console.log('[Session Complete] All trials finished, showing results');
                 this.showResults();
             } else {
                 this.startNewTrial();
@@ -426,9 +463,14 @@ class GameController {
      * Show results screen
      */
     showResults() {
+        console.log('[Session Complete] All trials finished');
         this.stopTimer();
         document.getElementById('game-screen').classList.add('hidden');
         document.getElementById('results-screen').classList.remove('hidden');
+        
+        // Log complete session data
+        const trialsData = this.gameState.getAllTrialsData();
+        console.log('[Final Session Data] All trials:', trialsData);
         
         this.renderResults();
     }

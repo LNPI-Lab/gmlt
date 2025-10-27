@@ -27,6 +27,7 @@ class GameState {
      * Initialize a new trial
      */
     startNewTrial(mazePath) {
+        console.log(`[GameState] Starting new trial ${this.currentTrial + 1}`);
         this.currentTrial++;
         this.currentPath = mazePath;
         this.currentPosition = [0, 0];
@@ -41,6 +42,7 @@ class GameState {
         this.startTime = Date.now();
         this.isComplete = false;
         this.ruleBreakActive = false;
+        console.log(`[GameState] Trial ${this.currentTrial} initialized, Path length: ${mazePath.length}, Start time: ${this.startTime}`);
     }
 
     /**
@@ -50,7 +52,10 @@ class GameState {
      * @returns {object} {valid: boolean, isComplete: boolean}
      */
     makeMove(row, col) {
+        console.log(`[MakeMove] Attempting move from [${this.currentPosition}] to [${row},${col}]`);
+        
         if (this.isComplete) {
+            console.log('[MakeMove] Game already complete');
             return { valid: false, isComplete: true };
         }
 
@@ -65,17 +70,22 @@ class GameState {
             this.consecutiveErrors = 0; // Reset consecutive errors
             this.ruleBreakActive = false;
             
+            const absoluteTimestamp = Date.now();
+            console.log(`[MakeMove] Valid move! New position: [${row},${col}], Visited cells: ${this.visitedCells.size}, Timestamp: ${new Date(absoluteTimestamp).toISOString()}`);
+            
             // Check if completed
             if (row === this.config.gridSize - 1 && col === this.config.gridSize - 1) {
                 this.isComplete = true;
+                console.log('[MakeMove] Maze completed!');
             }
-            
             this.moves.push({
                 position: [row, col],
                 correct: true,
                 time: moveTime,
+                timestamp: absoluteTimestamp,
                 errorType: null
             });
+            console.log(`[MakeMove] Move recorded with timestamp: ${new Date(absoluteTimestamp).toISOString()}`);
             
             return { 
                 valid: true, 
@@ -87,6 +97,8 @@ class GameState {
             // Invalid move - determine error type
             this.errorCount++;
             this.consecutiveErrors++;
+            
+            console.log(`[MakeMove] Invalid move! Consecutive errors: ${this.consecutiveErrors}, Total errors: ${this.errorCount}`);
             
             let errorType;
             let needsFlasher = false;
@@ -104,10 +116,14 @@ class GameState {
                 needsFlasher = true;
             }
             
+            const absoluteTimestamp = Date.now();
+            console.log(`[MakeMove] Error type: ${errorType}, Returning to [${this.lastCorrectPosition}], Timestamp: ${new Date(absoluteTimestamp).toISOString()}`);
+            
             this.moves.push({
                 position: [row, col],
                 correct: false,
                 time: moveTime,
+                timestamp: absoluteTimestamp,
                 errorType: errorType
             });
             
@@ -149,18 +165,25 @@ class GameState {
         
         // Special case: First move on start cell
         if (this.visitedCells.size === 0 && row === 0 && col === 0) {
-            return this._isInPath(row, col);
+            const isValid = this._isInPath(row, col);
+            console.log(`[Validation] First move on start cell: ${isValid}`);
+            return isValid;
         }
         
         // Check if adjacent
         const rowDiff = Math.abs(row - currentRow);
         const colDiff = Math.abs(col - currentCol);
         
+        console.log(`[Validation] Move to [${row},${col}], Current: [${currentRow},${currentCol}], Diff: [${rowDiff},${colDiff}]`);
+        
         if ((rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1)) {
             // Check if this cell is in the correct path
-            return this._isInPath(row, col);
+            const isValid = this._isInPath(row, col);
+            console.log(`[Validation] Adjacent cell, in path: ${isValid}`);
+            return isValid;
         }
         
+        console.log(`[Validation] Not adjacent, invalid`);
         return false;
     }
 
@@ -174,6 +197,7 @@ class GameState {
         // Special case: First click on start cell [0,0]
         if (this.visitedCells.size === 0 && row === 0 && col === 0 && 
             this.currentPosition[0] === 0 && this.currentPosition[1] === 0) {
+            console.log(`[Path Check] First click on start cell, allowing`);
             return true;
         }
         
@@ -194,16 +218,24 @@ class GameState {
                 currentIndex = 0;
             } else {
                 // We're off the path, so this won't be valid
+                console.log(`[Path Check] Current position [${this.currentPosition}] not found in path`);
                 return false;
             }
         }
         
+        console.log(`[Path Check] Current index: ${currentIndex}, Current position: [${this.currentPosition}]`);
+        
         // Next cell in path should be the clicked cell
         const nextIndex = currentIndex + 1;
-        if (nextIndex >= this.currentPath.length) return false;
+        if (nextIndex >= this.currentPath.length) {
+            console.log(`[Path Check] Next index ${nextIndex} >= path length ${this.currentPath.length}`);
+            return false;
+        }
         
         const nextCell = this.currentPath[nextIndex];
-        return nextCell[0] === row && nextCell[1] === col;
+        const isValid = nextCell[0] === row && nextCell[1] === col;
+        console.log(`[Path Check] Next cell in path: [${nextCell}], Checking: [${row},${col}], Valid: ${isValid}`);
+        return isValid;
     }
 
     /**
@@ -212,6 +244,8 @@ class GameState {
     completeTrial() {
         const endTime = Date.now();
         const totalTime = endTime - this.startTime;
+        
+        console.log(`[CompleteTrial] Trial ${this.currentTrial}, Time: ${totalTime}ms, Errors: ${this.errorCount}, Moves: ${this.moves.length}`);
         
         const trialData = {
             trialNumber: this.currentTrial,
@@ -222,10 +256,13 @@ class GameState {
             totalTime: totalTime,
             moves: [...this.moves],
             completed: this.isComplete,
-            timestamp: endTime
+            startTimestamp: this.startTime,
+            endTimestamp: endTime,
+            timestamp: endTime // Keep for backwards compatibility
         };
         
         this.trials.push(trialData);
+        console.log(`[CompleteTrial] Trial data saved:`, trialData);
         return trialData;
     }
 
