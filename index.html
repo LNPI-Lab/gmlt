@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMLT - Groton Maze Learning Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="js/config/task-config.js"></script>
+    <script src="js/core/maze-generator.js"></script>
+    <script src="js/core/performance-tracker.js"></script>
+    <script src="js/core/game-state.js"></script>
+    <script src="js/ui/game-controller.js"></script>
+    <script src="js/main.js"></script>
+    <style>
+        /* Custom animations */
+        @keyframes cellSelect {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        .cell-animate {
+            animation: cellSelect 0.3s ease;
+        }
+        
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .flash-on {
+            opacity: 1;
+        }
+        .flash-off {
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <!-- Main Container -->
+    <div id="app" class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800 mb-2">
+                Groton Maze Learning Test
+            </h1>
+            <p class="text-gray-600 text-sm md:text-base">
+                Spatial Working Memory Assessment
+            </p>
+        </header>
+
+        <!-- Instructions Screen -->
+        <div id="instructions-screen" class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6 md:p-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-4">Instructions</h2>
+            <div class="space-y-4 text-gray-700">
+                <p>
+                    You will complete <strong>5 trials</strong> of a maze learning task.
+                </p>
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 my-4">
+                    <h3 class="font-semibold mb-2">How to Play:</h3>
+                    <ul class="list-disc list-inside space-y-2">
+                        <li>Click on adjacent cells to find the hidden path through the maze</li>
+                        <li>Correct moves are highlighted in <span class="text-green-600 font-semibold">green</span></li>
+                        <li>Incorrect moves are highlighted in <span class="text-red-600 font-semibold">red</span></li>
+                        <li>When you make an error, you return to the starting position</li>
+                        <li>The goal is to reach the bottom-right corner</li>
+                        <li>Try to remember the path and complete each trial with fewer errors</li>
+                    </ul>
+                </div>
+                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 my-4">
+                    <p class="text-sm">
+                        <strong>Tip:</strong> Watch your error patterns and learn from them to improve across trials.
+                    </p>
+                </div>
+            </div>
+            <button id="start-btn" class="mt-6 w-full md:w-auto px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-semibold">
+                Start First Trial
+            </button>
+        </div>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="hidden">
+            <!-- Message Bar (Top) -->
+            <div id="top-message-bar" class="max-w-2xl mx-auto mb-4 p-3 bg-blue-100 border border-blue-300 rounded text-center">
+                <p id="top-message" class="text-blue-800 font-semibold">Begin by clicking the Start tile</p>
+            </div>
+
+            <!-- Trial Info -->
+            <div class="max-w-md mx-auto mb-4 text-center">
+                <div class="bg-white rounded-lg shadow-md p-4">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <span class="text-xs text-gray-600">Trial:</span>
+                            <span id="trial-number" class="block font-bold text-lg text-blue-600">1</span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-600">Errors:</span>
+                            <span id="error-count" class="block font-bold text-lg text-red-600">0</span>
+                        </div>
+                        <div>
+                            <span class="text-xs text-gray-600">Time:</span>
+                            <span id="elapsed-time" class="block font-bold text-lg text-gray-700">0s</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maze Grid -->
+            <div id="maze-container" class="flex justify-center mb-4">
+                <div id="maze-grid" class="bg-white rounded-lg shadow-lg p-2 md:p-4">
+                    <!-- Grid cells will be generated here -->
+                </div>
+            </div>
+
+            <!-- Message Bar (Bottom) -->
+            <div id="bottom-message-bar" class="max-w-2xl mx-auto mt-4 p-3 bg-gray-100 border border-gray-300 rounded text-center">
+                <p id="bottom-message" class="text-gray-700">Navigate from Start (S) to End (E)</p>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="results-screen" class="hidden max-w-3xl mx-auto bg-white rounded-lg shadow-lg p-6 md:p-8">
+            <h2 class="text-2xl font-semibold text-gray-800 mb-6">Session Complete!</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <!-- Summary Stats -->
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="font-semibold mb-3 text-gray-700">Summary</h3>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Total Trials:</span>
+                            <span id="total-trials" class="font-semibold">5</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Total Errors:</span>
+                            <span id="total-errors" class="font-semibold text-red-600">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Learning Index:</span>
+                            <span id="learning-index" class="font-semibold text-green-600">0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Learning Curve -->
+                <div class="bg-gray-50 rounded-lg p-4">
+                    <h3 class="font-semibold mb-3 text-gray-700">Error Reduction</h3>
+                    <div id="error-chart" class="h-32 flex items-end justify-between gap-1">
+                        <!-- Chart bars will be generated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trial Details Table -->
+            <div class="mb-6 overflow-x-auto">
+                <table class="w-full border-collapse bg-white">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="border px-4 py-2 text-left text-sm font-semibold text-gray-700">Trial</th>
+                            <th class="border px-4 py-2 text-center text-sm font-semibold text-gray-700">Errors</th>
+                            <th class="border px-4 py-2 text-center text-sm font-semibold text-gray-700">Time (s)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="results-table-body">
+                        <!-- Table rows will be generated here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button id="restart-btn" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-semibold">
+                    Start New Session
+                </button>
+                <button id="download-btn" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200 font-semibold">
+                    Download Results
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize the game when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof GameController !== 'undefined') {
+                const controller = new GameController();
+            }
+        });
+    </script>
+</body>
+</html>
+
