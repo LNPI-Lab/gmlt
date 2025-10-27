@@ -10,7 +10,7 @@ class GameState {
         this.trials = [];
         this.currentPosition = [0, 0];
         this.lastCorrectPosition = [0, 0];
-        this.visitedCells = new Set(['0,0']);
+        this.visitedCells = new Set(); // Don't pre-mark start cell as visited
         this.errorCount = 0;
         this.legalErrors = 0;
         this.perseverativeErrors = 0;
@@ -31,7 +31,7 @@ class GameState {
         this.currentPath = mazePath;
         this.currentPosition = [0, 0];
         this.lastCorrectPosition = [0, 0];
-        this.visitedCells = new Set(['0,0']);
+        this.visitedCells = new Set(); // Don't pre-mark start cell as visited
         this.errorCount = 0;
         this.legalErrors = 0;
         this.perseverativeErrors = 0;
@@ -147,6 +147,11 @@ class GameState {
     _isValidMove(row, col) {
         const [currentRow, currentCol] = this.currentPosition;
         
+        // Special case: First move on start cell
+        if (this.visitedCells.size === 0 && row === 0 && col === 0) {
+            return this._isInPath(row, col);
+        }
+        
         // Check if adjacent
         const rowDiff = Math.abs(row - currentRow);
         const colDiff = Math.abs(col - currentCol);
@@ -165,6 +170,12 @@ class GameState {
      */
     _isInPath(row, col) {
         if (!this.currentPath) return false;
+        
+        // Special case: First click on start cell [0,0]
+        if (this.visitedCells.size === 0 && row === 0 && col === 0 && 
+            this.currentPosition[0] === 0 && this.currentPosition[1] === 0) {
+            return true;
+        }
         
         // Find current position in path
         let currentIndex = -1;
