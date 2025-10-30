@@ -3,15 +3,20 @@
  * Main UI controller for the GMLT application
  */
 
-class GameController {
+class TaskController {
     constructor() {
         this.config = TASK_CONFIG;
         this.mazeGenerator = new MazeGenerator(this.config.gridSize);
         this.gameState = new GameState(this.config);
         this.isGameActive = false;
         this.timerInterval = null;
+        this.onComplete = null;
+        this.qualtricsHandler = null;
         
         this.initializeEventListeners();
+
+        // Qualtrics auto-start behavior when embedded in a Qualtrics environment
+        this.initializeForQualtrics();
     }
 
     /**
@@ -40,6 +45,37 @@ class GameController {
         document.getElementById('game-screen').classList.remove('hidden');
         
         this.startNewTrial();
+    }
+
+    /**
+     * Initialize controller behavior for Qualtrics if detected
+     */
+    initializeForQualtrics() {
+        if (typeof Qualtrics !== 'undefined') {
+            // Setup handler if available
+            if (typeof QualtricsHandler !== 'undefined') {
+                this.qualtricsHandler = new QualtricsHandler();
+                this.qualtricsHandler.initialize();
+            }
+
+            // Skip instructions and auto-start the task
+            const instructions = document.getElementById('instructions-screen');
+            if (instructions && instructions.parentNode) {
+                instructions.parentNode.removeChild(instructions);
+            }
+            const gameScreen = document.getElementById('game-screen');
+            if (gameScreen) {
+                gameScreen.classList.remove('hidden');
+            }
+            this.startNewTrial();
+
+            // When complete, submit to Qualtrics
+            this.onComplete = (results) => {
+                if (this.qualtricsHandler) {
+                    this.qualtricsHandler.submitData(results);
+                }
+            };
+        }
     }
 
     /**
@@ -468,6 +504,12 @@ class GameController {
         console.log('[Final Session Data] All trials:', trialsData);
         
         this.renderResults();
+
+        // If a completion callback is registered (e.g., Qualtrics), invoke it with prepared data
+        if (typeof this.onComplete === 'function') {
+            const data = this.prepareQualtricsData();
+            try { this.onComplete(data); } catch (e) { /* no-op */ }
+        }
     }
 
     /**
@@ -567,6 +609,29 @@ class GameController {
         a.download = `gmlt-results-${Date.now()}.json`;
         a.click();
         URL.revokeObjectURL(url);
+    }
+
+    /**
+     * Prepare a compact payload for Qualtrics embedded data
+     */
+    prepareQualtricsData() {
+        const trials = this.gameState.getAllTrialsData();
+        const exporter = (typeof QualtricsDataExporter !== 'undefined') ? new QualtricsDataExporter() : null;
+        const summary = PerformanceTracker.generateReport(trials);
+        const base = {
+            trials,
+            summary: {
+                totalErrors: summary.totalErrors,
+                learningIndex: summary.learningIndex,
+                errorProgression: summary.errorProgression
+            },
+            timestamp: Date.now()
+        };
+        // If exporter exists, include its compact export string for convenience
+        if (exporter) {
+            base.export = exporter.exportTrialData(trials);
+        }
+        return base;
     }
 }
 

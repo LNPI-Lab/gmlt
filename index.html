@@ -10,6 +10,9 @@
     <script src="js/core/performance-tracker.js"></script>
     <script src="js/core/game-state.js"></script>
     <script src="js/ui/game-controller.js"></script>
+    <!-- Qualtrics integration (safe to include outside Qualtrics) -->
+    <script src="js/qualtrics/qualtrics-handler.js"></script>
+    <script src="js/qualtrics/data-exporter.js"></script>
     <script src="js/main.js"></script>
     <style>
         /* Custom animations */
@@ -179,8 +182,8 @@
     <script>
         // Initialize the game when DOM is ready
         document.addEventListener('DOMContentLoaded', () => {
-            if (typeof GameController !== 'undefined') {
-                const controller = new GameController();
+            if (typeof TaskController !== 'undefined') {
+                const controller = new TaskController();
             }
         });
     </script>
