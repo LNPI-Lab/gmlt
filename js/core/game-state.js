@@ -21,6 +21,7 @@ class GameState {
         this.currentPath = null;
         this.isComplete = false;
         this.ruleBreakActive = false;
+        this.awaitingBacktrackConfirmation = false;
     }
 
     /**
@@ -39,9 +40,10 @@ class GameState {
         this.ruleBreakErrors = 0;
         this.consecutiveErrors = 0;
         this.moves = [];
-        this.startTime = Date.now();
+        this.startTime = null;
         this.isComplete = false;
         this.ruleBreakActive = false;
+        this.awaitingBacktrackConfirmation = false;
         console.log(`[GameState] Trial ${this.currentTrial} initialized, Path length: ${mazePath.length}, Start time: ${this.startTime}`);
     }
 
@@ -59,7 +61,53 @@ class GameState {
             return { valid: false, isComplete: true };
         }
 
-        const moveTime = Date.now() - this.startTime;
+        const absoluteTimestamp = Date.now();
+        let timerStarted = false;
+
+        // Start timer on first click of the start cell
+        if (!this.startTime && row === 0 && col === 0) {
+            this.startTime = absoluteTimestamp;
+            timerStarted = true;
+            console.log(`[MakeMove] Timer started at ${this.startTime}`);
+        }
+
+        const moveTime = this.startTime ? absoluteTimestamp - this.startTime : 0;
+
+        // If player must reconfirm the previous correct tile, enforce it here
+        if (this.awaitingBacktrackConfirmation) {
+            console.log('[MakeMove] Awaiting backtrack confirmation');
+            if (row === this.lastCorrectPosition[0] && col === this.lastCorrectPosition[1]) {
+                this.awaitingBacktrackConfirmation = false;
+                this.ruleBreakActive = false;
+                this.consecutiveErrors = 0;
+                this.currentPosition = [row, col];
+                this.visitedCells.add(`${row},${col}`);
+
+                this.moves.push({
+                    position: [row, col],
+                    correct: true,
+                    time: moveTime,
+                    timestamp: absoluteTimestamp,
+                    errorType: null,
+                    confirmation: true
+                });
+
+                console.log('[MakeMove] Backtrack confirmation recorded');
+
+                return {
+                    valid: true,
+                    isComplete: false,
+                    message: 'Go On',
+                    audioFeedback: false,
+                    confirmation: true,
+                    timerStarted
+                };
+            }
+
+            // Any other selection while awaiting confirmation is an error
+            return this._recordInvalidMove(row, col, moveTime, absoluteTimestamp, timerStarted);
+        }
+
         const isValid = this._isValidMove(row, col);
         
         if (isValid) {
@@ -70,7 +118,6 @@ class GameState {
             this.consecutiveErrors = 0; // Reset consecutive errors
             this.ruleBreakActive = false;
             
-            const absoluteTimestamp = Date.now();
             console.log(`[MakeMove] Valid move! New position: [${row},${col}], Visited cells: ${this.visitedCells.size}, Timestamp: ${new Date(absoluteTimestamp).toISOString()}`);
             
             // Check if completed
@@ -91,53 +138,63 @@ class GameState {
                 valid: true, 
                 isComplete: this.isComplete, 
                 message: "Go On",
-                audioFeedback: true
+                audioFeedback: true,
+                timerStarted
             };
         } else {
-            // Invalid move - determine error type
-            this.errorCount++;
-            this.consecutiveErrors++;
-            
-            console.log(`[MakeMove] Invalid move! Consecutive errors: ${this.consecutiveErrors}, Total errors: ${this.errorCount}`);
-            
-            let errorType;
-            let needsFlasher = false;
-            
-            if (this.consecutiveErrors === 1) {
-                errorType = 'legal';
-                this.legalErrors++;
-            } else if (this.consecutiveErrors === 2) {
-                errorType = 'perseverative';
-                this.perseverativeErrors++;
-            } else if (this.consecutiveErrors >= 3) {
-                errorType = 'rule-break';
-                this.ruleBreakErrors++;
-                this.ruleBreakActive = true;
-                needsFlasher = true;
-            }
-            
-            const absoluteTimestamp = Date.now();
-            console.log(`[MakeMove] Error type: ${errorType}, Returning to [${this.lastCorrectPosition}], Timestamp: ${new Date(absoluteTimestamp).toISOString()}`);
-            
-            this.moves.push({
-                position: [row, col],
-                correct: false,
-                time: moveTime,
-                timestamp: absoluteTimestamp,
-                errorType: errorType
-            });
-            
-            // Move back to last correct position (NOT to start)
-            this.currentPosition = [...this.lastCorrectPosition];
-            
-            return { 
-                valid: false, 
-                isComplete: false, 
-                errorType: errorType,
-                needsFlasher: needsFlasher,
-                lastCorrectPosition: this.lastCorrectPosition
-            };
+            return this._recordInvalidMove(row, col, moveTime, absoluteTimestamp, timerStarted);
         }
+    }
+
+    /**
+     * Record an invalid move and return the standard response payload
+     * @private
+     */
+    _recordInvalidMove(row, col, moveTime, timestamp, timerStarted) {
+        // Invalid move - determine error type
+        this.errorCount++;
+        this.consecutiveErrors++;
+
+        console.log(`[MakeMove] Invalid move! Consecutive errors: ${this.consecutiveErrors}, Total errors: ${this.errorCount}`);
+
+        let errorType;
+        let needsFlasher = false;
+
+        if (this.consecutiveErrors === 1) {
+            errorType = 'legal';
+            this.legalErrors++;
+        } else if (this.consecutiveErrors === 2) {
+            errorType = 'perseverative';
+            this.perseverativeErrors++;
+        } else if (this.consecutiveErrors >= 3) {
+            errorType = 'rule-break';
+            this.ruleBreakErrors++;
+            this.ruleBreakActive = true;
+            needsFlasher = true;
+        }
+
+        console.log(`[MakeMove] Error type: ${errorType}, Returning to [${this.lastCorrectPosition}], Timestamp: ${new Date(timestamp).toISOString()}`);
+
+        this.moves.push({
+            position: [row, col],
+            correct: false,
+            time: moveTime,
+            timestamp: timestamp,
+            errorType: errorType
+        });
+
+        // Move back to last correct position (NOT to start)
+        this.currentPosition = [...this.lastCorrectPosition];
+        this.awaitingBacktrackConfirmation = true;
+
+        return { 
+            valid: false, 
+            isComplete: false, 
+            errorType: errorType,
+            needsFlasher: needsFlasher,
+            lastCorrectPosition: this.lastCorrectPosition,
+            timerStarted
+        };
     }
     
     /**
@@ -243,7 +300,8 @@ class GameState {
      */
     completeTrial() {
         const endTime = Date.now();
-        const totalTime = endTime - this.startTime;
+        const effectiveStart = this.startTime || endTime;
+        const totalTime = endTime - effectiveStart;
         
         console.log(`[CompleteTrial] Trial ${this.currentTrial}, Time: ${totalTime}ms, Errors: ${this.errorCount}, Moves: ${this.moves.length}`);
         

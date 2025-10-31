@@ -83,6 +83,7 @@ class TaskController {
      */
     startNewTrial() {
         console.log(`[Trial Start] Starting trial ${this.gameState.currentTrial + 1}`);
+        this.stopTimer();
         const path = this.mazeGenerator.generateRandomPath();
         console.log(`[Path Generated] Path length: ${path.length}, Path:`, path);
         this.gameState.startNewTrial(path);
@@ -91,22 +92,25 @@ class TaskController {
         this.updateTrialInfo();
         this.renderMaze(path);
         this.attachCellListeners();
-        
-        // Start timer
-        this.startTimer();
     }
     
     /**
      * Start the timer
      */
     startTimer() {
-        if (this.timerInterval) {
+        if (this.timerInterval || !this.gameState.startTime) {
             clearInterval(this.timerInterval);
+            this.timerInterval = null;
         }
-        
+
+        if (!this.gameState.startTime || this.timerInterval) {
+            return;
+        }
+
         this.timerInterval = setInterval(() => {
             this.updateTrialInfo();
         }, 1000);
+        this.updateTrialInfo();
     }
     
     /**
@@ -191,44 +195,32 @@ class TaskController {
             console.log('[Game State] Game is complete, ignoring click');
             return;
         }
-        
-        // Check if clicking flashing tile during rule-break
-        if (this.gameState.ruleBreakActive) {
-            // Check if this is the flashing tile
-            const [flashRow, flashCol] = this.gameState.lastCorrectPosition;
-            console.log(`[Rule Break] Active, flashing tile: [${flashRow},${flashCol}]`);
-            if (row === flashRow && col === flashCol) {
-                // User clicked the flashing tile - resume normal play
-                console.log('[Rule Break] Correct tile clicked, resuming normal play');
-                this.stopFlashingTile([row, col]);
-                this.gameState.ruleBreakActive = false;
-                this.gameState.consecutiveErrors = 0; // Reset consecutive errors
-                this.updateMessage('Try to continue through the maze');
-                this.updateVisualState();
-                return;
-            } else {
-                // Wrong tile - ignore, show message
-                console.log('[Rule Break] Wrong tile clicked during rule break');
-                this.updateMessage('Touch the flashing tile, then try to continue', true);
-                return;
-            }
-        }
-        
+
         const result = this.gameState.makeMove(row, col);
         console.log(`[Move Result] Valid: ${result.valid}, Type: ${result.errorType || 'correct'}`, result);
+
+        if (result.timerStarted) {
+            this.startTimer();
+        }
         
         if (result.valid) {
             // CORRECT MOVE
             console.log(`[Correct Move] Valid move to [${row},${col}], New position: [${this.gameState.currentPosition}]`);
             // Audio feedback
-            this.playSuccessSound();
+            if (result.audioFeedback) {
+                this.playSuccessSound();
+            }
+
+            // If we had a flasher running, stop it once the correct tile is reclaimed
+            this.stopFlashingTile(this.gameState.lastCorrectPosition);
             
             // Update message bars
-            this.updateMessage('Go On', true);
+            this.updateMessage('Go On');
             
             // Check if completed
             if (result.isComplete) {
                 console.log('[Trial Complete] Trial completed successfully!');
+                this.stopTimer();
                 this.updateTrialInfo();
                 setTimeout(() => this.completeCurrentTrial(), 1000);
                 return;
@@ -243,13 +235,13 @@ class TaskController {
             let message, isError;
             
             if (result.errorType === 'legal') {
-                message = 'Go back to the last correct tile and try a different direction';
+                message = 'Click the previous correct tile before trying a different direction';
                 isError = true;
             } else if (result.errorType === 'perseverative') {
-                message = 'Go back to the previous correct tile and try a new way';
+                message = 'You must touch the previous correct tile before continuing';
                 isError = true;
             } else if (result.errorType === 'rule-break') {
-                message = 'Touch the flashing tile, then try to continue';
+                message = 'Touch the flashing tile (previous correct tile), then try to continue';
                 isError = true;
                 console.log(`[Rule Break] Starting flashing animation on [${result.lastCorrectPosition}]`);
                 // Start flashing animation
@@ -487,6 +479,8 @@ class TaskController {
         if (this.gameState.startTime) {
             const elapsed = Math.floor((Date.now() - this.gameState.startTime) / 1000);
             document.getElementById('elapsed-time').textContent = `${elapsed}s`;
+        } else {
+            document.getElementById('elapsed-time').textContent = '0s';
         }
     }
 
