@@ -251,7 +251,8 @@ class TaskController {
             
             // Visual feedback for error
             cellElement.classList.remove('bg-gray-100');
-            cellElement.classList.add('bg-red-500', 'cell-animate');
+            cellElement.classList.add('bg-red-500', 'cell-animate', 'text-white');
+            cellElement.textContent = 'X';
             
             // Update message and stats
             this.updateMessage(message, isError);
@@ -269,7 +270,8 @@ class TaskController {
             // Reset visual feedback after delay (unless rule-break)
             setTimeout(() => {
                 if (!this.gameState.ruleBreakActive) {
-                    cellElement.classList.remove('bg-red-500', 'cell-animate');
+                    cellElement.classList.remove('bg-red-500', 'cell-animate', 'text-white');
+                    cellElement.textContent = '';
                     cellElement.classList.add('bg-gray-100');
                 }
                 // Update visual state to show correct current position after error animation
