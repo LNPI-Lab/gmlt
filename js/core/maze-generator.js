@@ -6,17 +6,15 @@
 class MazeGenerator {
     constructor(gridSize) {
         this.gridSize = gridSize;
+        this.fixedPath = this._generateFixedPath();
     }
 
     /**
-     * Generate a valid maze path from start to end
-     * Uses a deterministic approach to create a fair path of exactly 28 steps
+     * Generate a valid maze path from start to end using the deterministic, loop-free layout.
      * @returns {Array} Array of [row, col] coordinates representing the path
      */
     generatePath() {
-        const targetLength = 28; // Fixed path length
-        // Always use the exact length generator to ensure consistency
-        return this._generateExactLengthPath(targetLength);
+        return this.fixedPath.map(cell => [...cell]);
     }
     
     /**
@@ -361,16 +359,7 @@ class MazeGenerator {
      * Adds some randomness while maintaining validity
      */
     generateRandomPath() {
-        // Shuffle neighbors occasionally to add variety
-        const path = this.generatePath();
-        
-        // Validate path
-        if (!this._validatePath(path)) {
-            // If path is invalid, generate a simple fallback
-            return this._generateSimplePath([0, 0], [this.gridSize - 1, this.gridSize - 1]);
-        }
-        
-        return path;
+        return this.generatePath();
     }
 
     /**
@@ -382,6 +371,8 @@ class MazeGenerator {
         
         const start = [0, 0];
         const end = [this.gridSize - 1, this.gridSize - 1];
+        const visited = new Set();
+        visited.add(`${start[0]},${start[1]}`);
         
         // Check start
         if (path[0][0] !== start[0] || path[0][1] !== start[1]) return false;
@@ -394,6 +385,11 @@ class MazeGenerator {
         for (let i = 1; i < path.length; i++) {
             const prev = path[i - 1];
             const curr = path[i];
+            const key = `${curr[0]},${curr[1]}`;
+            if (visited.has(key)) {
+                return false;
+            }
+            visited.add(key);
             const rowDiff = Math.abs(curr[0] - prev[0]);
             const colDiff = Math.abs(curr[1] - prev[1]);
             
@@ -403,6 +399,107 @@ class MazeGenerator {
         }
         
         return true;
+    }
+
+    /**
+     * Generate a deterministic path that contains no loops and ends at the goal
+     * @private
+     */
+    _generateFixedPath() {
+        const path = this._buildPresetPath();
+
+        if (!this._validatePath(path)) {
+            // As a fallback, generate a serpentine path that still fulfils the requirements
+            const fallback = this._generateSerpentinePath();
+            if (!this._validatePath(fallback)) {
+                throw new Error('MazeGenerator failed to create a valid deterministic path');
+            }
+            return fallback;
+        }
+
+        return path;
+    }
+
+    /**
+     * Preset path designed for the standard 10x10 GMLT grid.
+     * Provides a medium-length route with no repeated cells.
+     * @private
+     */
+    _buildPresetPath() {
+        if (this.gridSize !== 10) {
+            return this._generateSerpentinePath();
+        }
+
+        const preset = [
+            [0, 0], [0, 1], [0, 2], [0, 3], [0, 4],
+            [1, 4], [2, 4], [3, 4],
+            [3, 3], [3, 2], [3, 1],
+            [4, 1], [5, 1],
+            [5, 2], [5, 3], [5, 4], [5, 5], [5, 6],
+            [6, 6], [7, 6],
+            [7, 5], [7, 4], [7, 3], [7, 2],
+            [8, 2], [9, 2],
+            [9, 3], [9, 4], [9, 5], [9, 6], [9, 7], [9, 8], [9, 9]
+        ];
+
+        return preset;
+    }
+
+    /**
+     * Generate a serpentine path that covers the grid without loops.
+     * Used as a fallback for non-standard grid sizes.
+     * @private
+     */
+    _generateSerpentinePath() {
+        const path = [[0, 0]];
+        const targetRow = this.gridSize - 1;
+        const targetCol = this.gridSize - 1;
+        let row = 0;
+        let col = 0;
+
+        for (let currentCol = 0; currentCol < this.gridSize; currentCol++) {
+            // Handle final column explicitly to guarantee the end position
+            if (currentCol === targetCol) {
+                while (row < targetRow) {
+                    row++;
+                    path.push([row, currentCol]);
+                }
+                while (row > targetRow) {
+                    row--;
+                    path.push([row, currentCol]);
+                }
+                break;
+            }
+
+            if (currentCol % 2 === 0) {
+                while (row < targetRow) {
+                    row++;
+                    path.push([row, currentCol]);
+                }
+            } else {
+                while (row > 0) {
+                    row--;
+                    path.push([row, currentCol]);
+                }
+            }
+
+            col = currentCol + 1;
+            path.push([row, col]);
+        }
+
+        const last = path[path.length - 1];
+        if (last[0] !== targetRow || last[1] !== targetCol) {
+            while (col < targetCol) {
+                col++;
+                path.push([row, col]);
+            }
+            while (row < targetRow) {
+                row++;
+                path.push([row, col]);
+            }
+        }
+
+        return path;
     }
 }
 
