@@ -4,7 +4,7 @@ A web-based implementation of the Groton Maze Learning Test (GMLT), a computeriz
 
 ## Overview
 
-The GMLT is a computerized task where participants learn a hidden path through a maze across multiple trials. The test measures:
+The GMLT is a computerized task where participants learn a hidden path through a maze across multiple trials. The current release focuses on reinforcing short-term spatial memory by presenting the same, loop-free maze in every trial. The test measures:
 
 - **Spatial Working Memory**: Ability to remember and execute a spatial sequence
 - **Learning Efficiency**: Improvement in performance across trials
@@ -13,7 +13,9 @@ The GMLT is a computerized task where participants learn a hidden path through a
 ## Features
 
 - 📱 **Fully Responsive**: Works seamlessly on mobile, tablet, and desktop devices
-- 🎯 **Adaptive Difficulty**: Automatic maze generation with varying complexity
+- 🧭 **Deterministic Maze Path**: A pre-defined path is used for all five trials; no loops or branches, guaranteeing a single solution
+- 🔁 **Error Recovery Enforcement**: After a mistake, the participant must re-confirm the last correct tile before moving forward
+- ⏱️ **Precise Timing**: Trial timer starts on the first click of the start tile and stops immediately on reaching the goal
 - 📊 **Performance Tracking**: Detailed metrics including error rates, response times, and learning curves
 - 💾 **Data Export**: Download results as JSON for analysis
 - ⚙️ **Configurable**: Easy to customize grid size, trial count, and other parameters
@@ -47,6 +49,12 @@ Then navigate to `http://localhost:8000` in your browser.
 2. **Complete Trials**: Navigate through 5 consecutive trials, learning the maze path
 3. **Feedback**: Visual feedback (green for correct, red for incorrect) helps guide performance
 4. **View Results**: After completing all trials, view detailed performance metrics
+
+### Latest Version Highlights
+
+- Identical maze path across all trials to emphasise learning and retention
+- Timer now aligns with actual task engagement (starts at first tile, ends at goal)
+- Correct-backtracking feedback is rendered in green to differentiate from errors
 
 ## Configuration
 
@@ -89,10 +97,10 @@ gmlt/
 
 ### Key Classes
 
-- **MazeGenerator**: Generates valid maze paths using backtracking
-- **GameState**: Manages trial state and move validation
+- **MazeGenerator**: Provides a deterministic, loop-free maze path and validates route integrity
+- **GameState**: Manages trial state, timing, and the enforced backtracking rule after errors
 - **PerformanceTracker**: Calculates learning indices and metrics
-- **GameController**: Handles UI interactions and game flow
+- **GameController**: Handles UI interactions and game flow while reusing the shared maze path each trial
 
 ## Browser Support
 
