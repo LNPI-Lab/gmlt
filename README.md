@@ -13,7 +13,7 @@ The GMLT is a computerized task where participants learn a hidden path through a
 ## Features
 
 - 📱 **Fully Responsive**: Works seamlessly on mobile, tablet, and desktop devices
-- 🧭 **Deterministic Maze Path**: A pre-defined path is used for all five trials; no loops or branches, guaranteeing a single solution
+- 🧭 **Session-Consistent Maze**: Each session generates a fresh loop-free path that is reused for all five trials in that session
 - 🔁 **Error Recovery Enforcement**: After a mistake, the participant must re-confirm the last correct tile before moving forward
 - ⏱️ **Precise Timing**: Trial timer starts on the first click of the start tile and stops immediately on reaching the goal
 - 📊 **Performance Tracking**: Detailed metrics including error rates, response times, and learning curves
@@ -52,7 +52,7 @@ Then navigate to `http://localhost:8000` in your browser.
 
 ### Latest Version Highlights
 
-- Identical maze path across all trials to emphasise learning and retention
+- New session-specific paths while keeping the same route across the five trials in a session
 - Timer now aligns with actual task engagement (starts at first tile, ends at goal)
 - Correct-backtracking feedback is rendered in green to differentiate from errors
 

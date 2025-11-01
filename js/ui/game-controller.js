@@ -7,7 +7,7 @@ class TaskController {
     constructor() {
         this.config = TASK_CONFIG;
         this.mazeGenerator = new MazeGenerator(this.config.gridSize);
-        this.fixedMazePath = this.mazeGenerator.generatePath();
+        this.sessionPath = null;
         this.gameState = new GameState(this.config);
         this.isGameActive = false;
         this.timerInterval = null;
@@ -85,7 +85,10 @@ class TaskController {
     startNewTrial() {
         console.log(`[Trial Start] Starting trial ${this.gameState.currentTrial + 1}`);
         this.stopTimer();
-        const path = this.fixedMazePath.map(cell => [...cell]);
+        if (!this.sessionPath) {
+            this.sessionPath = this.mazeGenerator.generatePath();
+        }
+        const path = this.sessionPath.map(cell => [...cell]);
         console.log(`[Path Generated] Path length: ${path.length}, Path:`, path);
         this.gameState.startNewTrial(path);
         console.log(`[Game State] Trial ${this.gameState.currentTrial} started, Path length: ${this.gameState.currentPath.length}`);
@@ -584,6 +587,7 @@ class TaskController {
      */
     restart() {
         this.gameState = new GameState(this.config);
+        this.sessionPath = null;
         document.getElementById('results-screen').classList.add('hidden');
         document.getElementById('instructions-screen').classList.remove('hidden');
     }

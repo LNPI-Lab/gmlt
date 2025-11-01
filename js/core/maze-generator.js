@@ -6,15 +6,23 @@
 class MazeGenerator {
     constructor(gridSize) {
         this.gridSize = gridSize;
-        this.fixedPath = this._generateFixedPath();
     }
 
     /**
-     * Generate a valid maze path from start to end using the deterministic, loop-free layout.
+     * Generate a valid maze path from start to end using a loop-free layout.
      * @returns {Array} Array of [row, col] coordinates representing the path
      */
     generatePath() {
-        return this.fixedPath.map(cell => [...cell]);
+        const path = this._generateSessionPath();
+        if (this._validatePath(path)) {
+            return path;
+        }
+
+        const fallback = this._generateSerpentinePath();
+        if (!this._validatePath(fallback)) {
+            throw new Error('MazeGenerator failed to create a valid path');
+        }
+        return fallback;
     }
     
     /**
@@ -371,8 +379,7 @@ class MazeGenerator {
         
         const start = [0, 0];
         const end = [this.gridSize - 1, this.gridSize - 1];
-        const visited = new Set();
-        visited.add(`${start[0]},${start[1]}`);
+        const visited = new Set([`${start[0]},${start[1]}`]);
         
         // Check start
         if (path[0][0] !== start[0] || path[0][1] !== start[1]) return false;
@@ -400,51 +407,109 @@ class MazeGenerator {
         
         return true;
     }
-
     /**
-     * Generate a deterministic path that contains no loops and ends at the goal
+     * Attempt to generate a randomized, loop-free path for the current session.
      * @private
      */
-    _generateFixedPath() {
-        const path = this._buildPresetPath();
+    _generateSessionPath() {
+        const minLength = (this.gridSize - 1) * 2 + 1; // Minimum cells including start
+        const maxLength = Math.min(this.gridSize * this.gridSize, minLength + 14);
 
-        if (!this._validatePath(path)) {
-            // As a fallback, generate a serpentine path that still fulfils the requirements
-            const fallback = this._generateSerpentinePath();
-            if (!this._validatePath(fallback)) {
-                throw new Error('MazeGenerator failed to create a valid deterministic path');
+        for (let target = maxLength; target >= minLength; target--) {
+            const attempt = this._findPathWithLength(target);
+            if (attempt.length > 0 && this._validatePath(attempt)) {
+                return attempt;
             }
-            return fallback;
         }
 
-        return path;
+        return [];
     }
 
     /**
-     * Preset path designed for the standard 10x10 GMLT grid.
-     * Provides a medium-length route with no repeated cells.
+     * Find a single path of the specified length using DFS with backtracking.
      * @private
      */
-    _buildPresetPath() {
-        if (this.gridSize !== 10) {
-            return this._generateSerpentinePath();
+    _findPathWithLength(targetLength) {
+        const start = [0, 0];
+        const end = [this.gridSize - 1, this.gridSize - 1];
+        const path = [[...start]];
+        const visited = new Set([`${start[0]},${start[1]}`]);
+
+        const success = this._searchPath(start, end, targetLength, path, visited);
+        return success ? path : [];
+    }
+
+    /**
+     * Depth-first search helper for building a path of fixed length.
+     * @private
+     */
+    _searchPath(current, end, targetLength, path, visited) {
+        if (path.length === targetLength) {
+            return current[0] === end[0] && current[1] === end[1];
         }
 
-        const preset = [
-            [0, 0], [0, 1], [0, 2], [0, 3], [0, 4],
-            [1, 4], [2, 4], [3, 4],
-            [3, 3], [3, 2], [3, 1],
-            [4, 1], [5, 1],
-            [5, 2], [5, 3], [5, 4], [5, 5], [5, 6],
-            [6, 6], [7, 6],
-            [7, 5], [7, 4], [7, 3], [7, 2],
-            [8, 2], [9, 2],
-            [9, 3], [9, 4], [9, 5], [9, 6], [9, 7], [9, 8], [9, 9]
+        const remaining = targetLength - path.length;
+        const neighbors = this._getAdjacentCells(current);
+        this._shuffle(neighbors);
+
+        for (const neighbor of neighbors) {
+            const key = `${neighbor[0]},${neighbor[1]}`;
+            if (visited.has(key)) continue;
+
+            const distanceToEnd = this._manhattanDistance(neighbor, end);
+            if (distanceToEnd > remaining - 1) continue;
+
+            // Ensure parity feasibility: remaining steps after moving must align with distance to goal
+            if (((remaining - 1 - distanceToEnd) & 1) !== 0) continue;
+
+            visited.add(key);
+            path.push(neighbor);
+
+            if (this._searchPath(neighbor, end, targetLength, path, visited)) {
+                return true;
+            }
+
+            path.pop();
+            visited.delete(key);
+        }
+
+        return false;
+    }
+
+    /**
+     * Retrieve adjacent cells within bounds.
+     * @private
+     */
+    _getAdjacentCells(cell) {
+        const [row, col] = cell;
+        const neighbors = [];
+        const directions = [
+            [1, 0], [-1, 0],
+            [0, 1], [0, -1]
         ];
 
-        return preset;
+        for (const [dr, dc] of directions) {
+            const newRow = row + dr;
+            const newCol = col + dc;
+
+            if (newRow >= 0 && newRow < this.gridSize && newCol >= 0 && newCol < this.gridSize) {
+                neighbors.push([newRow, newCol]);
+            }
+        }
+
+        return neighbors;
     }
 
+    /**
+     * Shuffle an array in place.
+     * @private
+     */
+    _shuffle(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+    }
     /**
      * Generate a serpentine path that covers the grid without loops.
      * Used as a fallback for non-standard grid sizes.
