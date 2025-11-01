@@ -54,24 +54,18 @@
         <div id="instructions-screen" class="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6 md:p-8">
             <h2 class="text-2xl font-semibold text-gray-800 mb-4">Instructions</h2>
             <div class="space-y-4 text-gray-700">
-                <p>
-                    You will complete <strong>5 trials</strong> of a maze learning task.
-                </p>
+                <p>You will complete <strong>5 trials</strong> using the same hidden path.</p>
                 <div class="bg-blue-50 border-l-4 border-blue-500 p-4 my-4">
-                    <h3 class="font-semibold mb-2">How to Play:</h3>
+                    <h3 class="font-semibold mb-2">Task Steps</h3>
                     <ul class="list-disc list-inside space-y-2">
-                        <li>Click on adjacent cells to find the hidden path through the maze</li>
-                        <li>Correct moves are highlighted in <span class="text-green-600 font-semibold">green</span></li>
-                        <li>Incorrect moves are highlighted in <span class="text-red-600 font-semibold">red</span></li>
-                        <li>When you make an error, you return to the starting position</li>
-                        <li>The goal is to reach the bottom-right corner</li>
-                        <li>Try to remember the path and complete each trial with fewer errors</li>
+                        <li>Tap the blue tile in the top-left corner to begin.</li>
+                        <li>Tap one tile at a time to follow the hidden path to the yellow tile in the bottom-right corner.</li>
+                        <li>A green check mark means your choice was correct; a red X means it was wrong.</li>
+                        <li>If you make a mistake, tap the last green tile again, then try a new direction.</li>
+                        <li>Only move to tiles directly above, below, left, or right—never diagonally.</li>
+                        <li>Do not tap the same tile more than once in a trial.</li>
+                        <li>Move quickly but stay accurate; the timer starts when you tap the first tile.</li>
                     </ul>
-                </div>
-                <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 my-4">
-                    <p class="text-sm">
-                        <strong>Tip:</strong> Watch your error patterns and learn from them to improve across trials.
-                    </p>
                 </div>
             </div>
             <button id="start-btn" class="mt-6 w-full md:w-auto mx-auto block px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200 font-semibold">
