@@ -203,6 +203,13 @@ class TaskController {
         const result = this.gameState.makeMove(row, col);
         console.log(`[Move Result] Valid: ${result.valid}, Type: ${result.errorType || 'correct'}`, result);
 
+        // Handle case where trial hasn't started (must click start box first)
+        if (result.mustStartFirst) {
+            console.log('[Cell Click] Trial not started - must click start box first');
+            this.updateMessage('Please click the Start tile (top-left corner) first', false);
+            return;
+        }
+
         if (result.timerStarted) {
             this.startTimer();
         }

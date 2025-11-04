@@ -22,6 +22,7 @@ class GameState {
         this.isComplete = false;
         this.ruleBreakActive = false;
         this.awaitingBacktrackConfirmation = false;
+        this.hasStarted = false; // Track if start box has been clicked
     }
 
     /**
@@ -44,6 +45,7 @@ class GameState {
         this.isComplete = false;
         this.ruleBreakActive = false;
         this.awaitingBacktrackConfirmation = false;
+        this.hasStarted = false; // Reset for new trial
         console.log(`[GameState] Trial ${this.currentTrial} initialized, Path length: ${mazePath.length}, Start time: ${this.startTime}`);
     }
 
@@ -64,11 +66,24 @@ class GameState {
         const absoluteTimestamp = Date.now();
         let timerStarted = false;
 
-        // Start timer on first click of the start cell
-        if (!this.startTime && row === 0 && col === 0) {
-            this.startTime = absoluteTimestamp;
-            timerStarted = true;
-            console.log(`[MakeMove] Timer started at ${this.startTime}`);
+        // If the trial hasn't started (start box not clicked), only allow clicking [0,0]
+        if (!this.hasStarted) {
+            if (row === 0 && col === 0) {
+                // First click on start box - start the trial
+                this.hasStarted = true;
+                this.startTime = absoluteTimestamp;
+                timerStarted = true;
+                console.log(`[MakeMove] Start box clicked, trial started, timer started at ${this.startTime}`);
+                // Continue to process this as a valid move below
+            } else {
+                // Trying to click a cell other than start box - reject
+                console.log('[MakeMove] Trial not started - must click start box first');
+                return {
+                    valid: false,
+                    isComplete: false,
+                    mustStartFirst: true
+                };
+            }
         }
 
         const moveTime = this.startTime ? absoluteTimestamp - this.startTime : 0;
