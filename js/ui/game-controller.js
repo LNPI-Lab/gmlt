@@ -512,6 +512,11 @@ class TaskController {
         
         this.renderResults();
 
+        // Automatically download results after a brief delay to ensure UI is rendered
+        setTimeout(() => {
+            this.downloadResults();
+        }, 500);
+
         // If a completion callback is registered (e.g., Qualtrics), invoke it with prepared data
         if (typeof this.onComplete === 'function') {
             const data = this.prepareQualtricsData();
