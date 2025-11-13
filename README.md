@@ -17,7 +17,7 @@ The GMLT is a computerized task where participants learn a hidden path through a
 - 🔁 **Error Recovery Enforcement**: After a mistake, the participant must re-confirm the last correct tile before moving forward
 - ⏱️ **Precise Timing**: Trial timer starts on the first click of the start tile and stops immediately on reaching the goal
 - 📊 **Performance Tracking**: Detailed metrics including error rates, response times, and learning curves
-- 💾 **Data Export**: Download results as JSON for analysis
+- 💾 **Automatic Data Export**: Results are automatically downloaded as JSON to the user's Downloads folder upon session completion
 - ⚙️ **Configurable**: Easy to customize grid size, trial count, and other parameters
 
 ## Getting Started
@@ -48,13 +48,14 @@ Then navigate to `http://localhost:8000` in your browser.
 1. **Read Instructions**: The test begins with clear instructions on how to complete the task
 2. **Complete Trials**: Navigate through 5 consecutive trials, learning the maze path
 3. **Feedback**: Visual feedback (green for correct, red for incorrect) helps guide performance
-4. **View Results**: After completing all trials, view detailed performance metrics
+4. **View Results**: After completing all trials, view detailed performance metrics and receive an automatic download of results data
 
 ### Latest Version Highlights
 
 - New session-specific paths while keeping the same route across the five trials in a session
 - Timer now aligns with actual task engagement (starts at first tile, ends at goal)
 - Correct-backtracking feedback is rendered in green to differentiate from errors
+- Automatic data download: Results are automatically saved to the Downloads folder upon session completion
 
 ## Configuration
 
